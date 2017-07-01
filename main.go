@@ -33,8 +33,10 @@ func dumpMethodAsProto(m *descriptor.MethodDescriptorProto) string {
 	if m.ClientStreaming != nil && *m.ClientStreaming == true {
 		buf.WriteString("stream ")
 	}
+
 	buf.WriteString(strings.TrimLeftFunc(*m.InputType, trimDotFunc))
 	buf.WriteString(") returns (")
+
 	if m.ServerStreaming != nil && *m.ServerStreaming == true {
 		buf.WriteString("stream ")
 	}
