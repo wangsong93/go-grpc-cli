@@ -2,21 +2,24 @@ package main
 
 import (
 	"flag"
+	"log"
+
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	ref "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
-	"log"
 	//"github.com/golang/protobuf/proto"
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"io/ioutil"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"google.golang.org/grpc/credentials"
-	"io/ioutil"
-	"strings"
-	"os"
 )
 
 var (
@@ -29,9 +32,11 @@ var (
 	key         = flag.String("key", "", "key file")
 	ca          = flag.String("ca", "", "ca file")
 
-	jsonify     = flag.Bool("json", false, "print data as json")
-	l           = flag.Bool("l", false, "print more info if possible")
-	meth        = flag.String("method", "", "method to find")
+	jsonify = flag.Bool("json", false, "print data as json")
+	l       = flag.Bool("l", false, "print more info if possible")
+	meth    = flag.String("method", "", "method to find")
+
+	block = flag.Bool("block", false, "block connection")
 )
 
 func init() {
@@ -179,8 +184,8 @@ func serviceMethodsFromDescriptor(descs []*descriptor.FileDescriptorProto) servi
 	for _, desc := range descs {
 		for _, service := range desc.Service {
 			for _, method := range service.Method {
-				m := serviceMethod {
-					Method: *method.Name,
+				m := serviceMethod{
+					Method:  *method.Name,
 					Service: *desc.Package + "." + *service.Name,
 				}
 				if *l {
@@ -240,7 +245,6 @@ func getServiceMethods(stream ref.ServerReflection_ServerReflectionInfoClient) (
 		dscrpts = append(dscrpts, dscrpt...)
 	}
 
-
 	return serviceMethodsFromDescriptor(dscrpts), nil
 }
 
@@ -250,6 +254,9 @@ func main() {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig())))
 	} else {
 		opts = append(opts, grpc.WithInsecure())
+	}
+	if *block {
+		opts = append(opts, grpc.WithBlock(), grpc.WithTimeout(time.Second))
 	}
 	conn, err := grpc.Dial(*address, opts...)
 	if err != nil {
