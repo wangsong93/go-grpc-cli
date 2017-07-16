@@ -15,16 +15,17 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
-	"time"
+	//"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"google.golang.org/grpc/credentials"
+	"time"
 )
 
 var (
 	address = flag.String("address", "localhost:50051", "address of grpc server")
-	cmd     = flag.String("cmd", "ls", "command to execute: \n\tls - list services\n\tlsm - list of method in services\nfind_method - try to find method by it's name\n")
+	cmd     = flag.String("cmd", "ls", "command to execute: \n\tls - list services\n\tlsm - list of method in services\n\tfind_method - try to find method by it's name\n")
 
 	useTls      = flag.Bool("use_tls", false, "use tls for server connection")
 	tlsAuthType = flag.String("tls_auth_type", "", "tls auth type. Empty for default. One of [no_client_cert, request_client_cert, require_any_client_cert, verify_client_cert_if_given, require_and_verify_client")
@@ -37,6 +38,8 @@ var (
 	meth    = flag.String("method", "", "method to find")
 
 	block = flag.Bool("block", false, "block connection")
+
+	connectionTimeout = flag.Int("connection_timeout", 1, "connection timeout in sec, works only when block enabled")
 )
 
 func init() {
@@ -250,20 +253,34 @@ func getServiceMethods(stream ref.ServerReflection_ServerReflectionInfoClient) (
 
 func main() {
 	opts := []grpc.DialOption{}
+
 	if *useTls {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig())))
 	} else {
 		opts = append(opts, grpc.WithInsecure())
 	}
+
+	dialContext := context.Background()
+
 	if *block {
-		opts = append(opts, grpc.WithBlock(), grpc.WithTimeout(time.Second))
+		opts = append(opts, grpc.WithBlock())
+
+		if *connectionTimeout > 0 {
+			var cancel context.CancelFunc
+			dialContext, cancel = context.WithTimeout(dialContext,  time.Duration(*connectionTimeout)* time.Second)
+			defer cancel()
+		}
 	}
-	conn, err := grpc.Dial(*address, opts...)
+
+	conn, err := grpc.DialContext(dialContext, *address, opts...)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	cl := ref.NewServerReflectionClient(conn)
+
 	c := context.Background()
+
 	stream, err := cl.ServerReflectionInfo(c)
 	if err != nil {
 		log.Fatal(err)
