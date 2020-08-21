@@ -163,9 +163,12 @@ func getFileDescriptorProto(stream ref.ServerReflection_ServerReflectionInfoClie
 	if err != nil {
 		return nil, err
 	}
-
 	fileDescriptorResponse := fileDescriptor.GetFileDescriptorResponse()
 	if fileDescriptorResponse == nil {
+		errResponse := fileDescriptor.GetErrorResponse()
+		if errResponse != nil {
+			return nil, fmt.Errorf("errCode:%d, errMessage:%s", errResponse.ErrorCode, errResponse.ErrorMessage)
+		}
 		return nil, fmt.Errorf("FileDescriptorResponse is nil")
 	}
 	out := []*descriptor.FileDescriptorProto{}
