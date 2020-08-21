@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 
 	"golang.org/x/net/context"
@@ -163,6 +164,10 @@ func getFileDescriptorProto(stream ref.ServerReflection_ServerReflectionInfoClie
 		return nil, err
 	}
 
+	fileDescriptorResponse := fileDescriptor.GetFileDescriptorResponse()
+	if fileDescriptorResponse == nil {
+		return nil, fmt.Errorf("FileDescriptorResponse is nil")
+	}
 	out := []*descriptor.FileDescriptorProto{}
 	for _, v := range fileDescriptor.GetFileDescriptorResponse().FileDescriptorProto {
 		fd := new(descriptor.FileDescriptorProto)
@@ -226,7 +231,7 @@ func printResult(v interface{}) {
 	if *jsonify {
 		j, err := json.MarshalIndent(v, "", "\t")
 		if err != nil {
-			log.Fatal(err)
+			errorFatal(err)
 		}
 		log.Printf("%s", j)
 	} else {
@@ -274,7 +279,7 @@ func main() {
 
 	conn, err := grpc.DialContext(dialContext, *address, opts...)
 	if err != nil {
-		log.Fatal(err)
+		errorFatal(err)
 	}
 
 	cl := ref.NewServerReflectionClient(conn)
@@ -283,19 +288,19 @@ func main() {
 
 	stream, err := cl.ServerReflectionInfo(c)
 	if err != nil {
-		log.Fatal(err)
+		errorFatal(err)
 	}
 	switch *cmd {
 	case "ls":
 		services, err := getServerServices(stream)
 		if err != nil {
-			log.Fatal(err)
+			errorFatal(err)
 		}
 		printResult(services)
 	case "lsm":
 		sm, err := getServiceMethods(stream)
 		if err != nil {
-			log.Fatal(err)
+			errorFatal(err)
 		}
 
 		printResult(sm)
@@ -306,7 +311,7 @@ func main() {
 
 		sm, err := getServiceMethods(stream)
 		if err != nil {
-			log.Fatal(err)
+			errorFatal(err)
 		}
 
 		found := false
@@ -324,4 +329,8 @@ func main() {
 		log.Fatalf("Unknown command: %s", *cmd)
 	}
 
+}
+
+func errorFatal(err error) {
+	log.Fatal("ERROR: ", err)
 }
